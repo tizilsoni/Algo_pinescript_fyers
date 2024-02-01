@@ -1,26 +1,26 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © xXxBabayagaxXx
 
-//@version=4
-strategy("LallaStrategy", overlay = true)
-prd = input(defval = 3, title="Pivot Point Period", minval = 1, maxval = 50)
-Factor=input(defval = 3, title = "ATR Factor", minval = 1, step = 0.1)
-Pd=input(defval = 10, title = "ATR Period", minval=1)
-minrateu = input(defval = 1.0, title="Min profit Rate if Center Line Used", minval = 0)
-usecenter = input(defval = false, title="Use Center Line to Close Entry for 50%")
-showpivot = input(defval = false, title="Show Pivot Points")
-showcl = input(defval = false, title="Show PP Center Line")
-showsignals = input(title="Show Buy/Sell Signals ?", type=input.bool, defval=true)
+//@version=5
+strategy('BNF_LONG_SHORT', overlay=true)
+prd = input.int(defval=3, title='Pivot Point Period', minval=1, maxval=50)
+Factor = input.float(defval=3, title='ATR Factor', minval=1, step=0.1)
+Pd = input.int(defval=10, title='ATR Period', minval=1)
+minrateu = input.float(defval=1.0, title='Min profit Rate if Center Line Used', minval=0)
+usecenter = input(defval=false, title='Use Center Line to Close Entry for 50%')
+showpivot = input(defval=false, title='Show Pivot Points')
+showcl = input(defval=false, title='Show PP Center Line')
+showsignals = input(title='Show Buy/Sell Signals ?', defval=true)
 float minrate = minrateu / 100
-quant=input(title="Trade Quantity",defval=1)
+quant = input(title='Trade Quantity', defval=1)
 
 float ph = na
 float pl = na
-ph := pivothigh(prd, prd)
-pl := pivotlow(prd, prd)
+ph := ta.pivothigh(prd, prd)
+pl := ta.pivotlow(prd, prd)
 
-plotshape(ph and showpivot, text="H",  style=shape.labeldown, color=na, textcolor=color.red, location=location.abovebar, transp=0, offset = -prd)
-plotshape(pl and showpivot, text="L",  style=shape.labeldown, color=na, textcolor=color.lime, location=location.belowbar, transp=0, offset = -prd)
+plotshape(ph and showpivot, text='H', style=shape.labeldown, color=na, textcolor=color.new(color.red, 0), location=location.abovebar, offset=-prd, transp=0)
+plotshape(pl and showpivot, text='L', style=shape.labeldown, color=na, textcolor=color.new(color.lime, 0), location=location.belowbar, offset=-prd, transp=0)
 
 float center = na
 center := center[1]
@@ -28,63 +28,65 @@ float lastpp = ph ? ph : pl ? pl : na
 if lastpp
     if na(center)
         center := lastpp
+        center
     else
         center := (center * 2 + lastpp) / 3
+        center
 
-Up = center - (Factor * atr(Pd))
-Dn = center + (Factor * atr(Pd))
+Up = center - Factor * ta.atr(Pd)
+Dn = center + Factor * ta.atr(Pd)
 
 float TUp = na
 float TDown = na
 Trend = 0
-TUp := close[1] > TUp[1] ? max(Up, TUp[1]) : Up
-TDown := close[1] < TDown[1] ? min(Dn, TDown[1]) : Dn
-Trend := close > TDown[1] ? 1: close < TUp[1]? -1: nz(Trend[1], 1)
+TUp := close[1] > TUp[1] ? math.max(Up, TUp[1]) : Up
+TDown := close[1] < TDown[1] ? math.min(Dn, TDown[1]) : Dn
+Trend := close > TDown[1] ? 1 : close < TUp[1] ? -1 : nz(Trend[1], 1)
 Trailingsl = Trend == 1 ? TUp : TDown
 
 linecolor = Trend == 1 and nz(Trend[1]) == 1 ? color.lime : Trend == -1 and nz(Trend[1]) == -1 ? color.red : na
-plot(Trailingsl, color = linecolor ,  linewidth = 2, title = "PP SuperTrend")
+plot(Trailingsl, color=linecolor, linewidth=2, title='PP SuperTrend')
 
-plot(showcl ? center : na, color = showcl ? center < hl2 ? color.blue : color.red : na, transp = 0)
+plot(showcl ? center : na, color=showcl ? center < hl2 ? color.blue : color.red : na, transp=0)
 
 bsignal = Trend == 1 and Trend[1] == -1
 ssignal = Trend == -1 and Trend[1] == 1
 
-plotshape(bsignal and showsignals ? Up : na, title="Buy", text="Buy", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.green, textcolor=color.white, transp=0)
-plotshape(ssignal and showsignals ? Dn : na, title="Sell", text="Sell", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.red, textcolor=color.white, transp=0)
+plotshape(bsignal and showsignals ? Up : na, title='Buy', text='Buy', location=location.absolute, style=shape.labelup, size=size.tiny, color=color.new(color.green, 0), textcolor=color.new(color.white, 0))
+plotshape(ssignal and showsignals ? Dn : na, title='Sell', text='Sell', location=location.absolute, style=shape.labeldown, size=size.tiny, color=color.new(color.red, 0), textcolor=color.new(color.white, 0))
 halfexited = false
 halfexited := nz(halfexited[1], false)
-//if change(Trend)
-  //  strategy.close_all()
 
-lxse="TYPE: LX"+" :SYMBOL: "+syminfo.ticker+" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)+" :TYPE:SE "+" :SYMBOL: "+syminfo.ticker +" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)
-sxle="TYPE: SX"+" :SYMBOL: "+syminfo.ticker+" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)+" :TYPE:LE "+" :SYMBOL: "+syminfo.ticker +" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)
-le="TYPE:LE "+" :SYMBOL: "+syminfo.ticker +" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)
-//lx="TYPE:LX "+" :SYMBOL: "+syminfo.ticker +" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)
-se="TYPE:SE "+" :SYMBOL: "+syminfo.ticker +" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)
-//sx="TYPE:SX "+" :SYMBOL: "+syminfo.ticker +" :PRICE: "+tostring(close)+" :QTY: "+tostring(quant)
-
-    
-if(bsignal and strategy.position_size==0)
-    strategy.entry("BUY",strategy.long,comment=le)
-
-if(ssignal and strategy.position_size==0)
-    strategy.entry("SELL",strategy.short,comment=se)
+lxse = 'TYPE: LX' + ' :SYMBOL: ' + syminfo.ticker + ' :PRICE: ' + str.tostring(close) + ' :QTY: ' + str.tostring(quant) + ' :TYPE:SE ' + ' :SYMBOL: ' + syminfo.ticker + ' :PRICE: ' + str.tostring(close) + ' :QTY: ' + str.tostring(quant)
+sxle = 'TYPE: SX' + ' :SYMBOL: ' + syminfo.ticker + ' :PRICE: ' + str.tostring(close) + ' :QTY: ' + str.tostring(quant) + ' :TYPE:LE ' + ' :SYMBOL: ' + syminfo.ticker + ' :PRICE: ' + str.tostring(close) + ' :QTY: ' + str.tostring(quant)
+le = 'TYPE:LE ' + ' :SYMBOL: ' + syminfo.ticker + ' :PRICE: ' + str.tostring(close) + ' :QTY: ' + str.tostring(quant)
+se = 'TYPE:SE ' + ' :SYMBOL: ' + syminfo.ticker + ' :PRICE: ' + str.tostring(close) + ' :QTY: ' + str.tostring(quant)
 
 
-if(bsignal and strategy.position_size!=0)
-    strategy.entry("BUY",strategy.long,comment=sxle)
+if bsignal and strategy.position_size == 0
+    strategy.entry('BUY', strategy.long, alert_message=le)
 
-if(ssignal and strategy.position_size!=0)
-    strategy.entry("SELL",strategy.short,comment=lxse)
+if ssignal and strategy.position_size == 0
+    strategy.entry('SELL', strategy.short, alert_message=se)
 
-if change(strategy.position_size)
-    if change(strategy.position_size) > 0 and strategy.position_size > 0 or change(strategy.position_size) < 0 and strategy.position_size < 0
+
+if bsignal and strategy.position_size != 0
+    strategy.entry('BUY', strategy.long, alert_message=sxle)
+
+if ssignal and strategy.position_size != 0
+    strategy.entry('SELL', strategy.short, alert_message=lxse)
+
+if ta.change(strategy.position_size)
+    if ta.change(strategy.position_size) > 0 and strategy.position_size > 0 or ta.change(strategy.position_size) < 0 and strategy.position_size < 0
         halfexited := false
-    
+        halfexited
+
 if strategy.position_size > 0 and center > hl2 and usecenter and not halfexited and close > strategy.position_avg_price * (1 + minrate)
-    strategy.close("Buy", qty_percent = 50, comment = "close buy for 50%")
+    strategy.close('Buy', qty_percent=50, comment='close buy for 50%')
     halfexited := true
+    halfexited
 if strategy.position_size < 0 and center < hl2 and usecenter and not halfexited and close < strategy.position_avg_price * (1 + minrate)
-    strategy.close("Sell", qty_percent = 50, comment = "close sell for 50%")
+    strategy.close('Sell', qty_percent=50, comment='close sell for 50%')
     halfexited := true
+    halfexited
+
